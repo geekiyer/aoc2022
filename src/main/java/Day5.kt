@@ -3,9 +3,9 @@ fun main() {
     println(solve(true))
 }
 
-val rearrangementInput = object {}.javaClass.getResourceAsStream("day5.txt")?.bufferedReader()?.readLines()!!
+private val rearrangementInput = object {}.javaClass.getResourceAsStream("day5.txt")?.bufferedReader()?.readLines()!!
 
-fun solve(partTwo: Boolean): String {
+private fun solve(partTwo: Boolean): String {
     val crates = (1..9).associateWith { emptyList<Char>() }.toMutableMap()
     rearrangementInput.filter { '[' in it }.forEach { line ->
         for (stackIndex in 1..9) {
