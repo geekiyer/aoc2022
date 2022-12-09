@@ -1,5 +1,3 @@
-import com.sun.awt.SecurityWarning.getSize
-
 private fun handleCd(command: String, currentDir: Dir): Dir {
     var currentDirectory = currentDir.root
     val parameter = command.split(" ".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()[2]
