@@ -1,12 +1,14 @@
+import models.Dir
+
 private fun handleCd(command: String, currentDir: Dir): Dir {
-    var currentDirectory = currentDir.root
+    val currentDirectory: Dir?
     val parameter = command.split(" ".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()[2]
     currentDirectory = when (parameter) {
         "/" -> currentDir.root
         ".." -> currentDir.moveOut()
         else -> currentDir.moveIn(parameter)
     }
-    return currentDirectory!!
+    return currentDirectory
 }
 
 private fun buildDirTree(input: List<String>): Dir {
@@ -26,7 +28,7 @@ private fun buildDirTree(input: List<String>): Dir {
                     .toTypedArray()[0].toInt())
         }
     }
-    return currentDir.root!!
+    return currentDir.root
 }
 
 private fun getDirectoriesWithMaxSize(start: Dir, size: Int): List<Dir> {

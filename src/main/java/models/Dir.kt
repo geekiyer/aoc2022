@@ -1,3 +1,5 @@
+package models
+
 class Dir(val name: String?, parent: Dir?) {
     private var parent: Dir? = null
     private val subDirectories: MutableList<Dir> = ArrayList()
@@ -10,7 +12,7 @@ class Dir(val name: String?, parent: Dir?) {
     val size: Int
         get() = (files.values.stream().mapToInt { f: Int? -> f!! }.sum()
                 + subDirectories.stream().mapToInt { obj: Dir -> obj.size }.sum())
-    val root: Dir?
+    val root: Dir
         get() {
             var current: Dir? = this
             while (current!!.parent != null) {
