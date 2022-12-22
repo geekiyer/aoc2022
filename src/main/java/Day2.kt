@@ -4,7 +4,7 @@ fun main() {
     println(part2())
 }
 
-val input = object {}.javaClass.getResourceAsStream("day2.txt")?.bufferedReader()?.readLines()
+private val input = object {}.javaClass.getResourceAsStream("day2.txt")?.bufferedReader()?.readLines()
 
 private val part1Scores: Map<String, Int> =
     mapOf(
