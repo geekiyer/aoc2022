@@ -13,6 +13,7 @@ data class Point(val x: Int, val y: Int) {
         val ORIGIN = Point(0, 0)
     }
 
+
     operator fun plus(other: Point): Point {
         return Point(x + other.x, y + other.y)
     }
@@ -20,6 +21,18 @@ data class Point(val x: Int, val y: Int) {
     operator fun minus(other: Point): Point {
         return Point(x - other.x, y - other.y)
     }
+
+    fun neighbors(): Set<Point> =
+        setOf(
+            Point(x - 1, y - 1),
+            Point(x, y - 1),
+            Point(x + 1, y - 1),
+            Point(x - 1, y),
+            Point(x + 1, y),
+            Point(x - 1, y + 1),
+            Point(x, y + 1),
+            Point(x + 1, y + 1)
+        )
 
     fun move(direction: Direction, distance: Int = 1) = when (direction) {
         EAST -> Point(x + distance, y)
