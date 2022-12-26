@@ -1,238 +1,163 @@
-import kotlin.math.min
-
 fun main() {
-    val input = object {}.javaClass.getResourceAsStream("day17.txt")?.bufferedReader().use { it?.readText() }?.trimIndent()
-    println(Day17().partOne(input!!))
-    println(Day17().partTwo(input!!))
+    val input = object {}.javaClass.getResourceAsStream("day17.txt")?.bufferedReader()?.readLines()!!
+    println(solve(input!!, 2023))
+    println(solve(input!!, 1000000000001L))
 }
 
-class Day17 {
-    fun partOne(input: String): Int = run {
-        val jetPushes = asJetDirections(input)
-        return dropRocks(jetPushes, 2022).first.size
+data class Position(val x: Long, val y: Long)
+
+val firstRock = listOf(
+    Position(0 + 2, 3),
+    Position(1 + 2, 3),
+    Position(2 + 2, 3),
+    Position(3 + 2, 3),
+)
+val secondRock = listOf(
+    Position(1 + 2, 5),
+    Position(0 + 2, 4),
+    Position(1 + 2, 4),
+    Position(2 + 2, 4),
+    Position(1 + 2, 3),
+)
+val thirdRock = listOf(
+    Position(2 + 2, 5),
+    Position(2 + 2, 4),
+    Position(0 + 2, 3),
+    Position(1 + 2, 3),
+    Position(2 + 2, 3)
+)
+val fourthRock = listOf(
+    Position(0 + 2, 6),
+    Position(0 + 2, 5),
+    Position(0 + 2, 4),
+    Position(0 + 2, 3),
+)
+val fifthRock = listOf(
+    Position(0 + 2, 4),
+    Position(1 + 2, 4),
+    Position(0 + 2, 3),
+    Position(1 + 2, 3),
+)
+
+fun solve(input: List<String>, maxRocks:Long): Long {
+    val jetPattern = input[0]
+    var hotGasIndex = 0
+
+    val rocks = listOf(firstRock, secondRock, thirdRock, fourthRock, fifthRock)
+
+    val blockedPosition = hashSetOf<Position>().apply {
+        for (x in 0..6L) add(Position(x, -1))
     }
 
-    fun partTwo(input: String): Long {
-        val jetPushes = asJetDirections(input)
-
-        val rocks = 1000000000000
-        val cavesWithProbableCycle = dropRocks(jetPushes, rocks)
-        var cycle: List<String> = emptyList()
-        // there is "probably" a cycle in the 1k -> 5k range
-        run earlyReturn@ {
-            (5000 downTo 1000).forEach { possibleCycleSize ->
-                (0 until (rocks/possibleCycleSize)).forEach { cycleStartPosition ->
-                    val cavesToExplore = cavesWithProbableCycle.first.drop(cycleStartPosition.toInt())
-                    cavesToExplore.chunked(possibleCycleSize).windowed(2).forEach { (first, last) ->
-                        if (first == last) { cycle = first; return@earlyReturn }
-                    }
-                }
+    fun rightPosBlocked(rock: List<Position>): Boolean {
+        val end = rock.any { it.x + 1 > 6 }
+        var right = false
+        for (blockPos in blockedPosition) {
+            val isBlocked = rock.any {
+                it.copy(x = it.x + 1) == blockPos
+            }
+            if (isBlocked) {
+                right = true
+                break
             }
         }
-
-        var previousCaves = mutableListOf<String>()
-        var previousJetIndex = 0
-        val minRocksForCycle = (0 until 1000000000000).first { previouslyDroppedRocks ->
-            dropRocks(jetPushes, 1, previousCaves, previouslyDroppedRocks, previousJetIndex).also {
-                previousCaves = it.first
-                previousJetIndex = it.second
+        return end || right
+    }
+    fun leftPosBlocked(rock: List<Position>): Boolean {
+        val end = rock.any { it.x - 1 < 0 }
+        var left = false
+        for (blockPos in blockedPosition) {
+            val isBlocked = rock.any {
+                it.copy(x = it.x - 1) == blockPos
             }
-            previousCaves.takeLast(cycle.size) == cycle
-        } + 1 // add one since the counter is technically the previously dropped rock count
-
-        val nextRocksForCycle = (minRocksForCycle until 10000).first { previouslyDroppedRocks ->
-            dropRocks(jetPushes, 1, previousCaves, previouslyDroppedRocks, previousJetIndex).also {
-                previousCaves = it.first
-                previousJetIndex = it.second
+            if (isBlocked) {
+                left = true
+                break
             }
-            previousCaves.takeLast(cycle.size) == cycle
-        } + 1 // add one since the counter is technically the previously dropped rock count
-
-        val rocksCycleLength = nextRocksForCycle - minRocksForCycle
-        val sizeAtFirstCycle = dropRocks(jetPushes, minRocksForCycle).first.size
-        val sizeAtSecondCycle = dropRocks(jetPushes, nextRocksForCycle).first.size
-
-        val heightGrownEachCycle = sizeAtSecondCycle - sizeAtFirstCycle
-
-        val numberOfCycles = (ALL_THE_ROCKS - minRocksForCycle) / rocksCycleLength
-        val rockCountBeforeACyclePushesUsOver = minRocksForCycle + (numberOfCycles * rocksCycleLength)
-        val rocksRemainingToPlace = ALL_THE_ROCKS - rockCountBeforeACyclePushesUsOver
-
-        val cavesAfterAddingRemainingRocks = dropRocks(jetPushes, minRocksForCycle + rocksRemainingToPlace.toInt())
-        val heightAdded = cavesAfterAddingRemainingRocks.first.size - sizeAtFirstCycle
-
-        return sizeAtFirstCycle.toLong() + (heightGrownEachCycle * numberOfCycles) + heightAdded
+        }
+        return end || left
     }
-
-    private fun dropRocks(
-        jetPushes: List<Direction>,
-        rocksToDrop: Long,
-        cavern: MutableList<String> = mutableListOf(),
-        previousRocksDropped: Long = 0,
-        previousJetsUsed: Int = 0
-    ): Pair<MutableList<String>, Int> {
-        var rockIndex = previousRocksDropped % ROCKS.size
-        var jetPushesIndex = previousJetsUsed % jetPushes.size
-
-        repeat(rocksToDrop.toInt()) {
-            val nextRock = ROCKS[rockIndex.toInt()]
-            val rockEdges = RockEdges(
-                leftEdgeIndexOfRock = 2,
-                bottomEdgeOfRock = cavern.size + 3, // three blank spaces above the top of the current cavern
-                rightEdgeIndexOfRock = 2 + (nextRock.width - 1)
-            )
-
-            var rockHadSettled = false
-            while(!rockHadSettled) {
-                // try and push the rock
-                when (jetPushes[jetPushesIndex]) {
-                    Direction.LEFT -> tryMoveRockLeft(cavern, nextRock, rockEdges)
-                    Direction.RIGHT -> tryMoveRockRight(cavern, nextRock, rockEdges)
-                }
-
-                rockHadSettled = checkForDropCollision(cavern, nextRock, rockEdges)
-
-                // if so, we have a collision and merge it into our cave system
-                if (rockHadSettled) {
-                    if (rockEdges.bottomEdgeOfRock == cavern.size) { // we landed just above the bottom do just add ourselves to the cavern
-                        landRockOnTop(cavern, nextRock, rockEdges)
-                    } else { // we landed "inside" the cavern and need to merge our data
-                        landRockInsideCavern(cavern, nextRock, rockEdges)
-                    }
-                } else { // if not, we should drop the rock by one index
-                    rockEdges.bottomEdgeOfRock--
-                }
-
-                jetPushesIndex = (jetPushesIndex + 1) % jetPushes.size
+    fun downPosBlocked(rock: List<Position>): Boolean {
+        var isBlocked = false
+        for (blockPos in blockedPosition) {
+            isBlocked = rock.any {
+                it.copy(y = it.y - 1) == blockPos
             }
-
-            rockIndex = (rockIndex + 1) % ROCKS.size
+            if (isBlocked) break
         }
-
-        return cavern to jetPushesIndex
+        return isBlocked
     }
-
-    private fun landRockInsideCavern(cavern: MutableList<String>, nextRock: Rock, rockEdges: RockEdges) {
-        val numRowsToMerge = min(cavern.size - rockEdges.bottomEdgeOfRock, nextRock.height)
-
-        val rockRowsToMerge = nextRock.data.takeLast(numRowsToMerge)
-        rockRowsToMerge.forEachIndexed { rowOffset, rockRow ->
-            val emptyBefore = ".".repeat(rockEdges.leftEdgeIndexOfRock)
-            val emptyAfter = ".".repeat(MAX_CHAMBER_INDEX - rockEdges.rightEdgeIndexOfRock)
-            val myRow = "$emptyBefore$rockRow$emptyAfter"
-            val cavernIndex = (rockEdges.bottomEdgeOfRock + (numRowsToMerge - 1) - rowOffset)
-            val cavernRow = cavern[cavernIndex]
-            val newRow = myRow.zip(cavernRow).map { (me, them) ->
-                if (me == '.') them else me
-            }.joinToString("")
-            cavern[cavernIndex] = newRow
+    fun List<Position>.move(gasIndex: Int): List<Position> {
+        if (jetPattern[gasIndex] == '<' && !leftPosBlocked(this)) {
+            return this.map { it.copy(x = it.x - 1, y = it.y) }
         }
-        nextRock.data.dropLast(numRowsToMerge).reversed().forEach { rockRow ->
-            val emptyBefore = ".".repeat(rockEdges.leftEdgeIndexOfRock)
-            val emptyAfter = ".".repeat(MAX_CHAMBER_INDEX - rockEdges.rightEdgeIndexOfRock)
-            cavern.add("$emptyBefore$rockRow$emptyAfter")
+        if (jetPattern[gasIndex] == '>' && !rightPosBlocked(this)) {
+            return this.map { it.copy(x = it.x + 1, y = it.y) }
         }
+        return this
     }
+    fun List<Position>.drop() = this.map { it.copy(x = it.x, y = it.y - 1) }
 
-    private fun landRockOnTop(cavern: MutableList<String>, nextRock: Rock, rockEdges: RockEdges) {
-        nextRock.data.reversed().forEach { rockRow ->
-            val emptyBefore = ".".repeat(rockEdges.leftEdgeIndexOfRock)
-            val emptyAfter = ".".repeat(MAX_CHAMBER_INDEX - rockEdges.rightEdgeIndexOfRock)
-            cavern.add("$emptyBefore$rockRow$emptyAfter")
-        }
-    }
 
-    private fun checkForDropCollision(cavern: MutableList<String>, nextRock: Rock, rockEdges: RockEdges): Boolean {
-        // is any "solid" part of our rock directly above a "solid" part of the cave?
-        // TODO: this should be reversed, going from bottom to top for rock data
-        return nextRock.data.withIndex().any { (rockHeightIndexTopAligned, rockRow) ->
-            val cavernIndexOfRockIndex = rockEdges.bottomEdgeOfRock + (nextRock.height - 1) - rockHeightIndexTopAligned - 1
-            if (0 <= cavernIndexOfRockIndex && cavernIndexOfRockIndex < cavern.size) {
-                val rockRowToCollideInto = cavern.elementAt(cavernIndexOfRockIndex)
+    var totalRock = 1L
+    var rockIndex = 0
+    var currentHeight = 0L
 
-                rockRow.withIndex().any { (rowIndex, rockSpace) ->
-                    val rockRowToCollideIntoIndex = rockEdges.leftEdgeIndexOfRock + rowIndex
-                    rockSpace != '.' && rockRowToCollideInto[rockRowToCollideIntoIndex] != '.'
-                }
+    data class State(val jetIndex: Int, val rockType: Int, )
+    val seen = hashMapOf<State, Pair<Long, Long>>()
+
+    while (totalRock < maxRocks) {
+
+        if (totalRock > 500) {
+            if (!seen.contains(State(jetIndex = hotGasIndex, rockType = rockIndex))) {
+                seen[State(hotGasIndex, rockIndex)] = Pair(totalRock, currentHeight)
             } else {
-                false
-            }
-        } || rockEdges.bottomEdgeOfRock == 0
-    }
-
-    private fun tryMoveRockRight(cavern: MutableList<String>, nextRock: Rock, rockEdges: RockEdges) {
-        // check for an edge of the cavern stoppage
-        if (rockEdges.rightEdgeIndexOfRock < MAX_CHAMBER_INDEX) {
-            // check for hitting some existing solid ground
-            val collision = nextRock.data.withIndex().any { (rockHeightIndexTopAligned, rockRow) ->
-                val cavernIndexOfRockIndex = rockEdges.bottomEdgeOfRock + (nextRock.height - 1) - rockHeightIndexTopAligned
-
-                if (0 < cavernIndexOfRockIndex && cavernIndexOfRockIndex < cavern.size) {
-                    rockRow.withIndex().any { (rockRowIndex, collisionCheckPortion) ->
-                        if (collisionCheckPortion != '.') {
-                            val rockRowToCollideInto = cavern.elementAt(cavernIndexOfRockIndex)
-                            rockRowToCollideInto[rockEdges.rightEdgeIndexOfRock + 1 - (nextRock.width - 1 - rockRowIndex)] != '.'
-                        } else {
-                            false
-                        }
-                    }
-                } else {
-                    false
+                val (prevTotalRock, prevHeight) = seen[State(hotGasIndex, rockIndex)]!!
+                val cyclePeriod = totalRock - prevTotalRock
+                if (totalRock % cyclePeriod == maxRocks % cyclePeriod) {
+                    val cycleHeight = currentHeight - prevHeight
+                    val remainingRocks = maxRocks - totalRock
+                    val cyclesRemaining = (remainingRocks / cyclePeriod) + 1
+                    return prevHeight + (cycleHeight * cyclesRemaining)
                 }
             }
-            if (!collision) {
-                rockEdges.leftEdgeIndexOfRock++
-                rockEdges.rightEdgeIndexOfRock++
-            }
         }
-    }
 
-    private fun tryMoveRockLeft(cavern: MutableList<String>, nextRock: Rock, rockEdges: RockEdges) {
-        // check for an edge of the cavern stoppage
-        if (rockEdges.leftEdgeIndexOfRock > 0) {
-            // check for hitting some existing solid ground
-            val collision = nextRock.data.withIndex().any { (rockHeightIndexTopAligned, rockRow) ->
-                val cavernIndexOfRockIndex = rockEdges.bottomEdgeOfRock + (nextRock.height - 1) - rockHeightIndexTopAligned
+        var currentRock = rocks[rockIndex]
+        currentRock = currentRock.map {
+            it.copy(y = it.y + currentHeight)
+        }
+        var count = 3
+        while (true) {
+            // move left or right
+            currentRock = currentRock.move(hotGasIndex)
+            hotGasIndex = (hotGasIndex + 1) % jetPattern.length
 
-                if (0 < cavernIndexOfRockIndex && cavernIndexOfRockIndex < cavern.size) {
-                    rockRow.withIndex().any { (rockRowIndex, collisionCheckPortion) ->
-                        if (collisionCheckPortion != '.') {
-                            val rockRowToCollideInto = cavern.elementAt(cavernIndexOfRockIndex)
-                            rockRowToCollideInto[rockEdges.leftEdgeIndexOfRock - 1 + (rockRowIndex)] != '.'
-                        } else {
-                            false
-                        }
-                    }
+            // one unit down - first three are not blocked
+            if (count > 0){
+                currentRock = currentRock.drop()
+                count--
+                continue
+            }
+
+            // fall one unit down
+            if (!downPosBlocked(currentRock)) {
+                currentRock = currentRock.drop()
+            } else {
+                blockedPosition.addAll(currentRock)
+                currentHeight = if (totalRock == 1L) {
+                    1
                 } else {
-                    false
+                    (blockedPosition.groupBy { it.y }.count() - 1).toLong()
                 }
-            }
-            if (!collision) {
-                rockEdges.leftEdgeIndexOfRock--
-                rockEdges.rightEdgeIndexOfRock--
+                break
             }
         }
+
+        rockIndex = (rockIndex + 1) % 5
+        totalRock++
     }
 
-    private fun asJetDirections(input: String): List<Direction> = input.map {
-        if (it == '>') Direction.RIGHT else Direction.LEFT
-    }
+    return currentHeight
 
-    data class Rock(val height: Int, val width: Int, val data: List<String>)
-    data class RockEdges(var leftEdgeIndexOfRock: Int, var bottomEdgeOfRock: Int, var rightEdgeIndexOfRock: Int)
-    enum class Direction { LEFT, RIGHT }
-
-    companion object {
-        private const val MAX_CHAMBER_INDEX = 6
-
-        private const val ALL_THE_ROCKS = 1000000000000
-
-        private val ROCKS = listOf(
-            Rock(1, 4, listOf("1111")),
-            Rock(3, 3, listOf(".2.", "222", ".2.")),
-            Rock(3, 3, listOf("..3", "..3", "333")),
-            Rock(4, 1, listOf("4", "4", "4", "4")),
-            Rock(2, 2, listOf("55", "55")),
-        )
-    }
 }
